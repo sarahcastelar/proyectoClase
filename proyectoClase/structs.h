@@ -69,26 +69,6 @@ public:
 		md.cant_entradas = cant_entradas;
 	}
 
-	void readMetaData() {
-		ifstream fileC(md.nombre, ios::in | ios::binary);
-		if (!fileC) {
-			cout << "Error de aprtura en el archivo!" << endl;
-		}
-
-		fileC.seekg(0, ios::beg);
-		metadata struct_md;
-		fileC.read(reinterpret_cast<char*>(&struct_md), sizeof(struct_md));
-		cout << "--------leyendo metadata------" << endl;
-		cout << "Nombre del archivo: " << struct_md.nombre << endl
-			<< "Fecha creacion: " << struct_md.date << endl
-			<< "Autor: " << struct_md.owner << endl
-			<< "Tamano: " << struct_md.tamano << endl
-			<< "Inode Entries: " << struct_md.cant_entradas << endl
-			<< "BitMap size: " << struct_md.bitmap_size << endl;
-		cout << "--------fin leyendo meta------" << endl;
-		fileC.close();
-	}
-
 	void createBitMap() {
 
 	}
@@ -124,35 +104,6 @@ public:
 		return temporal;
 	}
 
-	void readInodeEntries() {
-		ifstream fileC(md.nombre, ios::in | ios::binary);
-		if (!fileC) {
-			cout << "Error de apertura en el archivo!" << endl;
-		}
-
-
-		inode struct_i;
-		cout << "byte end: " << md.byteEnd;
-		cout << "--------leyendo inodes------" << endl;
-		int puntero = (md.byteEnd * sizeof(struct_i));
-		fileC.seekg(puntero, ios::beg);
-		fileC.read(reinterpret_cast<char*>(&struct_i), sizeof(struct_i));
-
-		while (!fileC.eof()) {
-			cout << "Nombre Inode: " << struct_i.nombre << endl
-				<< "Fecha creacion: " << struct_i.fecha_creacion << endl
-				<< "Tipo: " << struct_i.type << endl
-				<< "Tamano: " << struct_i.tamano << endl
-				<< "Padre: " << struct_i.padre << endl
-				<< "First Child: " << struct_i.primerHijo << endl
-				<< "Right brother: " << struct_i.rightBrother << endl;
-		
-			fileC.read(reinterpret_cast<char*>(&struct_i), sizeof(struct_i));
-		}
-		cout << "--------fin leyendo------" << endl;
-		fileC.close();
-	}
-
 	void createFile(const char* vfs_name, int cant_entradas){
 		ofstream fileC(vfs_name, ios::out | ios::app | ios::binary);
 		if (!fileC) {
@@ -165,7 +116,7 @@ public:
 
 		fileC.seekp(0, ios::end);
 		fileC.write(reinterpret_cast<const char*>(&md), sizeof(md)); //se escribe el metadata. 
-		md.byteEnd = sizeof(fileC);
+		//md.byteEnd = fileC.tellp;
 		//Creating inode entries.
 		inodeEntries = new inode[md.cant_entradas]; //hago el arreglo.
 		inode inode1;
@@ -178,7 +129,41 @@ public:
 	}
 
 	void readFile() {
-		readMetaData();
-		readInodeEntries();
+		ifstream fileC(md.nombre, ios::in | ios::binary);
+		if (!fileC) {
+			cout << "Error de aprtura en el archivo!" << endl;
+		}
+
+		fileC.seekg(0, ios::beg);
+		metadata struct_md;
+		fileC.read(reinterpret_cast<char*>(&struct_md), sizeof(struct_md));
+		cout << "--------leyendo metadata------" << endl;
+		cout << "Nombre del archivo: " << struct_md.nombre << endl
+			<< "Fecha creacion: " << struct_md.date << endl
+			<< "Autor: " << struct_md.owner << endl
+			<< "Tamano: " << struct_md.tamano << endl
+			<< "Inode Entries: " << struct_md.cant_entradas << endl
+			<< "BitMap size: " << struct_md.bitmap_size << endl;
+		cout << "--------fin leyendo meta------" << endl;
+
+		//reading inode entries.
+		inode struct_i;
+		cout << "--------leyendo inodes------" << endl;
+		fileC.read(reinterpret_cast<char*>(&struct_i), sizeof(struct_i));
+
+		while (!fileC.eof()) {
+			cout << "Nombre Inode: " << struct_i.nombre << endl
+				<< "Fecha creacion: " << struct_i.fecha_creacion << endl
+				<< "Tipo: " << struct_i.type << endl
+				<< "Tamano: " << struct_i.tamano << endl
+				<< "Padre: " << struct_i.padre << endl
+				<< "First Child: " << struct_i.primerHijo << endl
+				<< "Right brother: " << struct_i.rightBrother << endl;
+
+			fileC.read(reinterpret_cast<char*>(&struct_i), sizeof(struct_i));
+		}
+		cout << "--------fin leyendo------" << endl;
+		fileC.close();
 	}
+
 };
