@@ -126,6 +126,7 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="global.h" />
     <ClInclude Include="inodeEntry.h" />
     <ClInclude Include="structs.h" />
   </ItemGroup>

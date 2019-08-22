@@ -9,12 +9,15 @@ struct inode {
 	int padre;
 	int primerHijo;
 	int rightChild;
+	//inode* arreglo;
 };
 
 class inodeEntry {
 
+
 private:
-	
+	inode inodeEntry;
+	inode* arreglo;
 
 public:
 
@@ -34,6 +37,7 @@ public:
 		cout << "Ingrese fecha: " << endl;
 		cin >> fecha_creacion;
 		
+		arreglo = new inode[5];
 		//el padre, hijo y hermanos lo hace segun del directorio de donde este. 
 
 	}

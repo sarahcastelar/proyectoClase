@@ -16,16 +16,19 @@ int main(){
 			//leer lo que el usuario ingresa para ver que accion quiere tomar.
 			string command;
 			char name[30];
+			int cant_entradas = -1;
 			cout << "C:\\Users\\Sarah>" << endl;
 			cin >> name;
+			cout << "Entradas: " << endl;
+			cin >> cant_entradas;
 			//getline(cin, command);
 			
 			
 			//if ((getCommand(command)) == 0) {
 				//name = (command.substr(13, command.length)).c_str();
-				s.createFile(name);
+				s.createFile(name,cant_entradas);
 			//}
-				
+				s.readFile();
 
 		}
 
