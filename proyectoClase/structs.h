@@ -1,5 +1,7 @@
 #include <iostream>
 #include <fstream>
+#include<ctime> 
+#include <string>
 using namespace std;
 
 struct metadata {
@@ -9,11 +11,10 @@ struct metadata {
 	char owner[30];
 	unsigned int cant_entradas;
 	unsigned int bitmap_size;
-	unsigned int byteEnd;
 	//unsigned int cant_bloques_directos;
 	metadata() {
-		cant_entradas = -1;
-		bitmap_size = -1;
+		cant_entradas = 0;
+		bitmap_size = 0;
 	}
 }; 
 
@@ -25,6 +26,8 @@ struct inode {
 	int padre;
 	int primerHijo;
 	int rightBrother;
+	//unsigned int bloquesDirectos[12];
+	//unsigned int * 
 	inode() {
 		padre = -1;
 		primerHijo = -1;
@@ -42,8 +45,24 @@ private:
 	metadata md;
 	inode inodeEntry;
 	inode* inodeEntries;
+	int cant_entradas = 10;
 
 public:
+
+	char* getDate() {
+		time_t t = time(NULL);
+		tm* timePtr = localtime(&t);
+		string aux = "";
+		char fechaCreacion[9];
+
+		(timePtr->tm_mday < 10) ? aux = "0" + to_string(timePtr->tm_mday) : aux = to_string(timePtr->tm_mday);
+		(timePtr->tm_mon < 10) ? aux = aux + "0" + to_string(timePtr->tm_mon + 1) : aux = aux + to_string(timePtr->tm_mon + 1); //ver que pedoss con el, me imprimia 8 en vez de 9
+		aux = aux + to_string(timePtr->tm_year + 1900);
+		for (size_t i = 0; i < 8; i++)
+		{
+			fechaCreacion[i] = aux.at(i);
+		}
+	}
 
 	inode* getInodeEntries() {
 		return inodeEntries;
@@ -54,19 +73,13 @@ public:
 	}
 
 	void createMetadata(const char* vfs_name, int cant_entradas) {
-		char date[9];
-		char owner[30];
 		unsigned int bitmap_size;
 		unsigned int cant_bloques_directos;
 
 		strcpy_s(md.nombre, vfs_name);
-		cout << "Ingrese fecha: " << endl;
-		cin >> date;
-		strcpy_s(md.date, date);
-		cout << "Ingrese autor: " << endl;
-		cin >> owner;
-		strcpy_s(md.owner, owner);
-		md.cant_entradas = cant_entradas;
+		strcpy_s(md.date, getDate());
+		strcpy_s(md.owner, "Sarah");
+		//md.cant_entradas = cant_entradas;
 	}
 
 	void createBitMap() {
@@ -104,6 +117,17 @@ public:
 		return temporal;
 	}
 
+	void createDisc(const char* vfs_name) {
+		ofstream fileC(vfs_name, ios::out | ios::app | ios::binary);
+		if (!fileC) {
+			cout << "Error de apertura en el archivo. " << endl;
+			return;
+		}
+		createMetadata(vfs_name, cant_entradas);
+		inodeEntries = new inode[md.cant_entradas]; //GLOBAL.
+		md.tamano = sizeof(md);
+	}
+
 	void createFile(const char* vfs_name, int cant_entradas){
 		ofstream fileC(vfs_name, ios::out | ios::app | ios::binary);
 		if (!fileC) {
@@ -112,15 +136,16 @@ public:
 		}
 
 		createMetadata(vfs_name, cant_entradas);
+		inodeEntries = new inode[md.cant_entradas]; //GLOBAL.
 		md.tamano = sizeof(md);
 
 		fileC.seekp(0, ios::end);
 		fileC.write(reinterpret_cast<const char*>(&md), sizeof(md)); //se escribe el metadata. 
-		//md.byteEnd = fileC.tellp;
 		//Creating inode entries.
-		inodeEntries = new inode[md.cant_entradas]; //hago el arreglo.
 		inode inode1;
 		for (int i = 0; i < md.cant_entradas; i++){
+			
+			
 			inode1 = createInodeEntry(i);
 			fileC.write(reinterpret_cast<const char*>(&inode1), sizeof(inode1));
 		}
