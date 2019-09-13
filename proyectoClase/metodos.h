@@ -261,7 +261,7 @@ public:
 			cout << "entries full!" << endl;
 	}
 
-	void cd(const char* fileName) {
+	void cd(const char* fileName, bool itsDot) {
 		inode temp;
 		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
 		if (!fileC) {
@@ -274,11 +274,20 @@ public:
 		fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
 
 		while (!fileC.eof()) {
-			char* str = temp.nombre;
-			resultado = strcmp(str, fileName);
-			if ( resultado == 0) {
-				setNodoActual(temp);
-				break;
+			if (itsDot) {
+				//si encontramos al padre del nodoactual. es ese. 
+				if (temp.primerHijo == nodoActual.indice) {
+					setNodoActual(temp);
+					break;
+				}
+			}
+			else {
+				char* str = temp.nombre;
+				resultado = strcmp(str, fileName);
+				if (resultado == 0) {
+					setNodoActual(temp);
+					break;
+				}
 			}
 			fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
 		}
@@ -288,4 +297,5 @@ public:
 
 		fileC.close();
 	}
+
 };

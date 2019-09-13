@@ -48,15 +48,15 @@ int main(){
 					break;
 				case 2:
 					if (command.length() >= 3) {
-						int encontro1 = command.find("/..");
-						if (encontro1 != string::npos && encontro1 == 3) {
-							cout << "sarah acordate de hacer esto. " << endl;
-						}
+						bool itsdot = false;
+						int encontro1 = command.find("..");
+						if (encontro1 != string::npos && encontro1 == 3) 
+							itsdot = true;
 						else {
 							command = command.substr(3, command.length());
 							vfs_name = command.c_str();
 							cout << "vfsname:" << vfs_name << endl;
-							m.cd(vfs_name);
+							m.cd(vfs_name, itsdot);
 						}
 						na = m.getNodoActual();
 						cout << "currently in: " << na.nombre;
