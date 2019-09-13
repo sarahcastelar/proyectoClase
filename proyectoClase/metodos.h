@@ -8,7 +8,7 @@ class metodos {
 
 private:
 	metadata md;
-	int contIndice = 1;
+	int contIndice = 1, contmk = 1;
 	inode nodoActual;
 	string fecha = "";
 	char* bitMap;
@@ -144,7 +144,7 @@ public:
 		metadata struct_md;
 		fileC.read(reinterpret_cast<char*>(&struct_md), sizeof(struct_md));
 		cout << "--------leyendo metadata------" << endl;
-		cout << "Nombre del archivo: " << struct_md.nombre << endl
+		cout << "Nombre del archivo:" << struct_md.nombre << endl
 			<< "Fecha creacion: " << struct_md.date << endl
 			<< "Autor: " << struct_md.owner << endl
 			<< "Tamano: " << struct_md.tamano << endl
@@ -167,8 +167,8 @@ public:
 				<< "Padre: " << struct_i.padre << endl
 				<< "First Child: " << struct_i.primerHijo << endl
 				<< "Right brother: " << struct_i.rightBrother << endl
-				<< "Indice Inodo: " << struct_i.indice;
-
+				<< "Indice Inodo: " << struct_i.indice << endl;
+			cout << "--------next inode------" << endl;
 			fileC.read(reinterpret_cast<char*>(&struct_i), sizeof(struct_i));
 		}
 		cout << "--------fin leyendo------" << endl;
@@ -203,60 +203,89 @@ public:
 	}
 
 	void mkdir(const char* fileName, inode nodoActual) {
-		inode inodeE, temp;
-		int pos = -1;
+		if (contmk < md.cant_entradas) {
+			inode inodeE, temp;
+			int pos = -1;
 
+			fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
+			if (!fileC) {
+				cout << "Error de apertura en el archivo!" << endl;
+			}
+
+			//crea el directorio vacio
+			cout << "fileNameinMKDIR:" << fileName << endl;
+			strcpy_s(inodeE.nombre, fileName);
+			inodeE.type = 'd';
+			strcpy_s(inodeE.fecha_creacion, fecha.c_str());
+			inodeE.primerHijo = -1;
+			inodeE.indice = contIndice;
+			inodeE.occupied = 1;
+			inodeE.padre = nodoActual.indice;
+			inodeE.tamano = sizeof(inode);
+			contIndice++;
+
+			cout << "a verrr el hijo: " << nodoActual.primerHijo;
+			//actualiza el rightBrother.	
+			if (nodoActual.primerHijo == -1) {
+				pos = sizeof(metadata) + ((sizeof(inode)) * nodoActual.indice);
+				fileC.seekg(pos);
+				fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
+				temp.primerHijo = inodeE.indice;
+				fileC.seekg(pos);
+				fileC.write(reinterpret_cast<char*>(&temp), sizeof(temp));
+				setNodoActual(temp);
+				cout << "a verrr el hijo: " << nodoActual.primerHijo;
+			}
+			else {
+				pos = sizeof(metadata) + ((sizeof(inode)) * nodoActual.primerHijo);
+				fileC.seekg(pos);
+				fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
+				cout << "name del primer hijo: " << temp.nombre;
+				temp.rightBrother = inodeE.indice;
+
+				fileC.seekg(pos);
+				fileC.write(reinterpret_cast<char*>(&temp), sizeof(temp));
+				cout << "es right broo";
+
+			}
+
+			//lo actualiza en el archivo
+			pos = sizeof(metadata) + ((sizeof(inode)) * inodeE.indice);
+			fileC.seekg(pos);
+			fileC.write(reinterpret_cast<char*>(&inodeE), sizeof(inodeE));
+			fileC.close();
+			readFile();
+			contmk++;
+		}
+		else
+			cout << "entries full!" << endl;
+	}
+
+	void cd(const char* fileName) {
+		inode temp;
 		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
 		if (!fileC) {
 			cout << "Error de apertura en el archivo!" << endl;
 		}
 
-		//crea el directorio vacio
-		strcpy_s(inodeE.nombre, fileName);
-		inodeE.type = 'd';
-		strcpy_s(inodeE.fecha_creacion, fecha.c_str());
-		inodeE.primerHijo = -1;
-		inodeE.indice = contIndice;
-		inodeE.occupied = 1;
-		inodeE.padre = nodoActual.indice;
-		inodeE.tamano = sizeof(inode);
-		contIndice++;
+		int pos = sizeof(metadata);
+		int resultado = -1;
+		fileC.seekg(pos);
+		fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
 
-		cout << "a verrr el hijo: " << nodoActual.primerHijo; 
-		//actualiza el rightBrother.	
-		if (nodoActual.primerHijo == -1) {
-			pos = sizeof(metadata) + ((sizeof(inode)) * nodoActual.indice);
-			fileC.seekg(pos);
+		while (!fileC.eof()) {
+			char* str = temp.nombre;
+			resultado = strcmp(str, fileName);
+			if ( resultado == 0) {
+				setNodoActual(temp);
+				break;
+			}
 			fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
-			temp.primerHijo = inodeE.indice;
-			fileC.seekg(pos);
-			fileC.write(reinterpret_cast<char*>(&temp), sizeof(temp));
-			setNodoActual(temp);
-			cout << "a verrr el hijo: " << nodoActual.primerHijo;
-		}	
-		else {
-			pos = sizeof(metadata) + ((sizeof(inode)) * nodoActual.primerHijo);
-			fileC.seekg(pos);
-			fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
-			cout << "name del primer hijo: " << temp.nombre;
-			temp.rightBrother = inodeE.indice;
-
-			fileC.seekg(pos);
-			fileC.write(reinterpret_cast<char*>(&temp), sizeof(temp));
-			cout << "es right broo";
-
 		}
 
-		//lo actualiza en el archivo
-		pos = sizeof(metadata) + ((sizeof(inode)) * inodeE.indice);
-		cout << "posss: " << pos << endl;
-		fileC.seekg(pos);
-		fileC.write(reinterpret_cast<char*>(&inodeE), sizeof(inodeE));
-		fileC.close();
-		//readFile();
-	}
+		if (resultado == -1) 
+			cout << "File or Directory non existent. " << endl;
 
-	void getRightBrother(int nodoNuevoIndice) {
-		
+		fileC.close();
 	}
 };

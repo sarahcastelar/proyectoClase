@@ -29,7 +29,7 @@ int main(){
 				found = true;
 				switch (i) {
 				case 0:
-					if (command.length() > 12) {
+					if (command.length() >= 12) {
 						command = command.substr(12, command.length());
 						vfs_name = command.c_str();
 						cout << "# de inode entries: " << endl;
@@ -40,43 +40,52 @@ int main(){
 					}
 					break;
 				case 1:
-					if (command.length() > 5) {
-						command = command.substr(5, command.length());
+					if (command.length() >= 6) {
+						command = command.substr(6, command.length());
 						vfs_name = command.c_str();
 						m.mkdir(vfs_name,na);
 					}
 					break;
 				case 2:
-					if (command.length() > 3) {
-						command = command.substr(3, command.length());
-						vfs_name = command.c_str();
-						//s.createDisc(vfs_name);
+					if (command.length() >= 3) {
+						int encontro1 = command.find("/..");
+						if (encontro1 != string::npos && encontro1 == 3) {
+							cout << "sarah acordate de hacer esto. " << endl;
+						}
+						else {
+							command = command.substr(3, command.length());
+							vfs_name = command.c_str();
+							cout << "vfsname:" << vfs_name << endl;
+							m.cd(vfs_name);
+						}
+						na = m.getNodoActual();
+						cout << "currently in: " << na.nombre;
 					}
 					break;
 				case 3: 
-					if (command.length() > 3) {
+					if (command.length() >= 3) {
 						command = command.substr(3, command.length());
 						vfs_name = command.c_str();
 						//s.createDisc(vfs_name);
 					}
 					break;
 				case 4: 
-					if (command.length() > 3) {
+					if (command.length() >= 3) {
 						command = command.substr(3, command.length());
 						vfs_name = command.c_str();
 						//s.createDisc(vfs_name);
 					}
 					break;
 				case 5:
-					if (command.length() > 6) {
-						command = command.substr(6, command.length());
+					if (command.length() >= 7) {
+						command = command.substr(7, command.length());
 						vfs_name = command.c_str();
 						//s.createDisc(vfs_name);
 					}
 					break;
 				case 6:
-					if (command.length() > 6) {
-						command = command.substr(6, command.length());
+					if (command.length() >= 7) {
+						command = command.substr(7, command.length());
 						vfs_name = command.c_str();
 						//s.createDisc(vfs_name);
 					}
