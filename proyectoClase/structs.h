@@ -1,6 +1,8 @@
 #include <iostream>
 using namespace std;
 
+int contIndice = 0;
+
 struct metadata {
 	char nombre[30];
 	unsigned int tamano;
@@ -27,8 +29,10 @@ struct inode {
 	int primerHijo;
 	int rightBrother;
 	bool occupied;
-	//unsigned int bloquesDirectos[12];
-	//unsigned int bloquesIndirectos[3];
+	unsigned int * bloquesDirectos[12];
+	unsigned int * bloquesIndirectos1;
+	unsigned int* bloquesIndirectos2;
+	unsigned int* bloquesIndirectos3;
 	inode() {
 		indice = -1;
 		padre = -1;
@@ -42,10 +46,21 @@ struct inode {
 	}
 };
 
+struct bitMap {
+	char* bmp;
+	bitMap() {
+	}
+};
+
 struct bloqueDirecto {
 	char texto[4096]; //4k
 	bloqueDirecto() {
 		for (int i = 0; i < 4096; i++)
 			texto[i] = '~';
 	}
+};
+
+struct bloqueIndirecto1 {
+	bloqueDirecto * bi1[16];
+
 };

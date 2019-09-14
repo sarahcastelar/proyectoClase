@@ -2,13 +2,14 @@
 #include <fstream>
 #include <ctime>
 #include <string>
+#include <iomanip>
 #include "structs.h"
 
 class metodos {
 
 private:
 	metadata md;
-	int contIndice = 1, contmk = 1;
+	int contIndice = 1, contmk = 1, indices = 0;
 	inode nodoActual;
 	string fecha = "";
 	char* bitMap;
@@ -86,6 +87,18 @@ public:
 		nodoActual = na;
 	}
 
+	inode getRaiz() {
+		inode temp;
+		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
+		if (!fileC) {
+			cout << "Error de apertura en el archivo!" << endl;
+		}
+		int pos = sizeof(metadata);
+		fileC.seekg(pos);
+		fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
+		return temp;
+	}
+
 	string getDate() {
 		time_t t = time(NULL);
 		tm* timePtr = localtime(&t);
@@ -128,10 +141,13 @@ public:
 
 		//hace el espacio de los inode entries y los escribe vacios en el archivo. 
 		inodo.tamano = sizeof(inodo);
-		for (size_t i = 0; i < md.cant_entradas; i++)
+		for (size_t i = 0; i < md.cant_entradas; i++) {
+			inodo.indice = indices;
 			fileC.write(reinterpret_cast<const char*>(&inodo), sizeof(inodo));
-
+			indices++;
+		}
 		fileC.close();
+		insertRaiz();
 	}
 
 	void readFile() {
@@ -150,6 +166,7 @@ public:
 			<< "Tamano: " << struct_md.tamano << endl
 			<< "Inode Entries: " << struct_md.cant_entradas << endl
 			<< "BitMap size: " << struct_md.bitmap_size << endl;
+
 		cout << "--------fin leyendo meta------" << endl;
 
 		int pos = fileC.tellg();
@@ -167,7 +184,8 @@ public:
 				<< "Padre: " << struct_i.padre << endl
 				<< "First Child: " << struct_i.primerHijo << endl
 				<< "Right brother: " << struct_i.rightBrother << endl
-				<< "Indice Inodo: " << struct_i.indice << endl;
+				<< "Indice Inodo: " << struct_i.indice << endl
+				<< "Occupied: " << struct_i.occupied << endl;
 			cout << "--------next inode------" << endl;
 			fileC.read(reinterpret_cast<char*>(&struct_i), sizeof(struct_i));
 		}
@@ -202,29 +220,49 @@ public:
 		fileC.close();
 	}
 
+	int nextAvailable() {
+		inode temp;
+		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
+		if (!fileC) {
+			cout << "Error de apertura en el archivo!" << endl;
+		}
+
+		int pos = sizeof(metadata);
+		fileC.seekg(pos);
+		fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
+
+		while (!fileC.eof()) {
+			if (temp.occupied == 0) {
+				return temp.indice;
+			}
+			fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
+		}
+		fileC.close();
+		return -1;
+	}
+
 	void mkdir(const char* fileName, inode nodoActual) {
-		if (contmk < md.cant_entradas) {
+		int availabeSpace = nextAvailable();
+		if (availabeSpace != -1){
 			inode inodeE, temp;
 			int pos = -1;
 
 			fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
 			if (!fileC) {
 				cout << "Error de apertura en el archivo!" << endl;
-			}
+			}		
 
 			//crea el directorio vacio
-			cout << "fileNameinMKDIR:" << fileName << endl;
 			strcpy_s(inodeE.nombre, fileName);
 			inodeE.type = 'd';
 			strcpy_s(inodeE.fecha_creacion, fecha.c_str());
 			inodeE.primerHijo = -1;
-			inodeE.indice = contIndice;
+			inodeE.indice = availabeSpace;
 			inodeE.occupied = 1;
 			inodeE.padre = nodoActual.indice;
 			inodeE.tamano = sizeof(inode);
 			contIndice++;
 
-			cout << "a verrr el hijo: " << nodoActual.primerHijo;
 			//actualiza el rightBrother.	
 			if (nodoActual.primerHijo == -1) {
 				pos = sizeof(metadata) + ((sizeof(inode)) * nodoActual.indice);
@@ -234,18 +272,15 @@ public:
 				fileC.seekg(pos);
 				fileC.write(reinterpret_cast<char*>(&temp), sizeof(temp));
 				setNodoActual(temp);
-				cout << "a verrr el hijo: " << nodoActual.primerHijo;
 			}
 			else {
 				pos = sizeof(metadata) + ((sizeof(inode)) * nodoActual.primerHijo);
 				fileC.seekg(pos);
 				fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
-				cout << "name del primer hijo: " << temp.nombre;
 				temp.rightBrother = inodeE.indice;
 
 				fileC.seekg(pos);
 				fileC.write(reinterpret_cast<char*>(&temp), sizeof(temp));
-				cout << "es right broo";
 
 			}
 
@@ -254,7 +289,7 @@ public:
 			fileC.seekg(pos);
 			fileC.write(reinterpret_cast<char*>(&inodeE), sizeof(inodeE));
 			fileC.close();
-			readFile();
+			//readFile();
 			contmk++;
 		}
 		else
@@ -276,7 +311,7 @@ public:
 		while (!fileC.eof()) {
 			if (itsDot) {
 				//si encontramos al padre del nodoactual. es ese. 
-				if (temp.primerHijo == nodoActual.indice) {
+				if (temp.indice == nodoActual.padre) {
 					setNodoActual(temp);
 					break;
 				}
@@ -292,10 +327,200 @@ public:
 			fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
 		}
 
-		if (resultado == -1) 
+		if (resultado == -1 && !itsDot) 
 			cout << "File or Directory non existent. " << endl;
 
 		fileC.close();
 	}
 
+	void ls(inode nodoA) { //seria el nodo actual. 
+		//estoy en un nodo actual. ese nodo tiene un indice. 
+		inode aux, aux2;
+		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
+		if (!fileC) {
+			cout << "Error de apertura en el archivo!" << endl;
+		}
+
+		int pos = sizeof(metadata) + (sizeof(inode) * nodoActual.indice);
+		fileC.seekg(pos);
+		fileC.read(reinterpret_cast<char*>(&aux), sizeof(aux));
+
+		bool puede = true;
+		pos = sizeof(metadata) + (sizeof(inode) * nodoActual.primerHijo);
+		fileC.seekg(pos);
+		fileC.read(reinterpret_cast<char*>(&aux2), sizeof(aux2));
+		if (aux2.occupied == 0) {
+			puede = false;
+		}
+
+		if (puede) {
+			if (aux.primerHijo != -1) { //si tiene hijo.. nos movemos a la posicion de ese hijo en
+				//el archivo y listamos.
+
+				cout << left << setw(10) << "NAME" << setw(13) << "TYPE"
+					<< setw(7) << right << "SIZE" << endl;
+
+				pos = sizeof(metadata) + (sizeof(inode) * aux.primerHijo);
+				fileC.seekg(pos);
+				fileC.read(reinterpret_cast<char*>(&aux), sizeof(aux));
+				cout << left << setw(10) << aux.nombre << setw(13) << aux.type
+				<< setw(7) << right << aux.tamano << endl;
+
+				//ver si hay right brothers. 
+				while (aux.rightBrother != -1) {
+					pos = sizeof(metadata) + (sizeof(inode) * aux.rightBrother);
+					fileC.seekg(pos);
+					fileC.read(reinterpret_cast<char*>(&aux), sizeof(aux));
+					cout << left << setw(10) << aux.nombre << setw(13) << aux.type
+						<< setw(7) << right << aux.tamano << endl;
+				}
+			}
+			else
+				cout << "Directory empty. \n";
+		}
+		else
+			cout << "Directory empty. \n";
+		fileC.close();
+	}
+
+	int  findPos(const char* fileName) {
+		/*
+			FUNCION QUE DEVUELVE EL INDICE DEL NODO A BORRAR.
+		*/
+		inode temp;
+		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
+		if (!fileC) {
+			cout << "Error de apertura en el archivo!" << endl;
+		}
+
+		int pos = sizeof(metadata);
+		int resultado = -1;
+		fileC.seekg(pos);
+		fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
+
+		while (!fileC.eof()) {
+			char* str = temp.nombre;
+			resultado = strcmp(str, fileName);
+			cout << "str: " << str << " fileName: " << fileName << endl;
+			if (resultado == 0) {
+				return temp.indice;
+			}
+			fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
+		}
+		fileC.close();
+		return -1;
+	}
+
+	char* findName(int indice) {
+		inode temp;
+		char* nombre;
+		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
+		if (!fileC) {
+			cout << "Error de apertura en el archivo!" << endl;
+		}
+
+		int pos = sizeof(metadata) + ((sizeof(inode)) * indice);
+		fileC.seekg(pos);
+		fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
+		nombre = temp.nombre;
+		fileC.close();
+		return nombre;
+	}
+
+	int findRightBrother(int indice) {
+		inode temp;
+		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
+		if (!fileC) {
+			cout << "Error de apertura en el archivo!" << endl;
+		}
+
+		int pos = sizeof(metadata) + ((sizeof(inode)) * indice);
+		fileC.seekg(pos);
+		fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
+		return temp.rightBrother;
+	}
+
+	int occupied() {
+		inode temp;
+		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
+		if (!fileC) {
+			cout << "Error de apertura en el archivo!" << endl;
+		}
+
+		int pos = sizeof(metadata) + ((sizeof(inode)) * nodoActual.indice);
+		fileC.seekg(pos);
+		fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
+
+		pos = sizeof(metadata) + (sizeof(inode) * temp.primerHijo);
+		fileC.seekg(pos);
+		fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
+		
+		return temp.occupied;
+	}
+
+	void rm(const char* fileName, int indice) {
+		int borrar = findPos(fileName);
+		cout << "indicee: " << borrar << endl;
+		if (borrar != -1 || (strcmp(fileName, "null") == 0)) {
+			cout << "hahaha que pedosss... " << endl;
+			inode temp;
+			fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
+			if (!fileC) {
+				cout << "Error de apertura en el archivo!" << endl;
+			}
+
+			if (strcmp(fileName, "null") != 0)
+				indice = findPos(fileName);
+
+			int pos = sizeof(metadata) + ((sizeof(inode)) * indice);
+			int resultado = -1;
+			fileC.seekg(pos);
+			fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
+
+			if (temp.type == 'f') {
+				temp.occupied = 0;
+				fileC.seekg(pos);
+				fileC.write(reinterpret_cast<char*>(&temp), sizeof(temp));
+				contIndice--;
+			}
+			else if ((temp.primerHijo != -1 && temp.rightBrother == -1) || (temp.primerHijo == -1 && temp.rightBrother != -1)) {//si tiene hijos
+				temp.occupied = 0;
+				fileC.seekg(pos);
+				fileC.write(reinterpret_cast<char*>(&temp), sizeof(temp));
+				contIndice--;
+
+				//si no tiene hijo pero si rightBrother
+				if (temp.primerHijo == -1 && temp.rightBrother != -1) {
+					int iRBdelHijo = findRightBrother(temp.indice);
+					cout << "temp es: " << temp.nombre << " temp.primerHijo tiene rightB?" << iRBdelHijo << endl;
+					if (iRBdelHijo != -1)
+						rm("null", iRBdelHijo);
+				}
+				else {//si tiene hijo pero no rightBrother
+					cout << "TIENE HIJO PERO NO RBRO Y ES: " << temp.nombre << endl;
+					rm("null", temp.primerHijo);
+				}
+
+			}
+			else {
+				cout << "entra al else, temp es: " << temp.nombre << endl;
+				temp.occupied = 0;
+				fileC.seekg(pos);
+				fileC.write(reinterpret_cast<char*>(&temp), sizeof(temp));
+				contIndice--;
+			}
+
+			//saber si se esta borrando el firstC de la raiz. 
+			inode raizTemp = getRaiz();
+			char* name = findName(raizTemp.primerHijo);
+			if ((strcmp(fileName, name) == 0) || (indice == raizTemp.primerHijo))
+				setNodoActual(raizTemp);
+
+			fileC.close();
+			readFile();
+		}
+		else
+			cout << "Ese directorio/archivo no existe. " << endl;
+		
+	}
 };

@@ -7,6 +7,8 @@ using namespace std;
 int main(){
 	metodos m;
 	string command;
+	string init = "";
+	init = "\nC:\\Users\\Sarah>";
 	const char* vfs_name;
 	int n = -1;
 	inode na;
@@ -15,7 +17,7 @@ int main(){
 	cout << "Microsoft Windows [Version 10.0.18362.356] \n(c)2019 Microsoft Corporation.All rights reserved.\n " << endl;
 
 	while (true) {
-		cout << "\nC:\\Users\\Sarah>";
+		cout << init;
 		getline(cin, command);
 
 		string commands[7] = { "create disc", "mkdir", "cd", "ls", "rm", "Import", "Export" };
@@ -29,62 +31,72 @@ int main(){
 				found = true;
 				switch (i) {
 				case 0:
-					if (command.length() >= 12) {
+					if (command.length() >= 12) {//CREATE DISC
 						command = command.substr(12, command.length());
 						vfs_name = command.c_str();
 						cout << "# de inode entries: " << endl;
 						cin >> n;
-						m.createDisc(vfs_name, n+1);\
-						m.insertRaiz();
+						m.createDisc(vfs_name, n+1);
 						//m.readFile();
 					}
 					break;
 				case 1:
-					if (command.length() >= 6) {
+					if (command.length() >= 6) {//MKDIR
 						command = command.substr(6, command.length());
 						vfs_name = command.c_str();
 						m.mkdir(vfs_name,na);
 					}
 					break;
 				case 2:
-					if (command.length() >= 3) {
-						bool itsdot = false;
-						int encontro1 = command.find("..");
-						if (encontro1 != string::npos && encontro1 == 3) 
-							itsdot = true;
-						else {
+					if (command.length() >= 3) {//CD
+						int occu = m.occupied();
+						if (occu == 1) {
 							command = command.substr(3, command.length());
 							vfs_name = command.c_str();
-							cout << "vfsname:" << vfs_name << endl;
-							m.cd(vfs_name, itsdot);
-						}
-						na = m.getNodoActual();
-						cout << "currently in: " << na.nombre;
-					}
+							int encontro1 = command.find("..");
+							if (encontro1 != string::npos && encontro1 == 0) {
+								m.cd(vfs_name, true);
+								init = init.substr(0, 16);
+								na = m.getNodoActual();
+								if (na.indice != 0)
+									init = init + na.nombre + ">";
+							}
+							else {
+								m.cd(vfs_name, false);
+								na = m.getNodoActual();
+								init = init + na.nombre + ">";
+							}
+							//cout << "currently in: " << na.nombre;	
+						}else
+							cout << "Disco vacio." << endl;
+					}	
 					break;
 				case 3: 
-					if (command.length() >= 3) {
-						command = command.substr(3, command.length());
-						vfs_name = command.c_str();
-						//s.createDisc(vfs_name);
+					if (command.length() == 2) {//LS
+						na = m.getNodoActual();
+						m.ls(na);
 					}
 					break;
 				case 4: 
-					if (command.length() >= 3) {
+					if (command.length() >= 3) {//RM
 						command = command.substr(3, command.length());
 						vfs_name = command.c_str();
-						//s.createDisc(vfs_name);
+						m.rm(vfs_name,-1);
+						init = init.substr(0, 16);
+						na = m.getNodoActual();
+						if (na.indice != 0)
+							init = init + ">" + na.nombre;
 					}
 					break;
 				case 5:
-					if (command.length() >= 7) {
+					if (command.length() >= 7) {//IMPORT
 						command = command.substr(7, command.length());
 						vfs_name = command.c_str();
 						//s.createDisc(vfs_name);
 					}
 					break;
 				case 6:
-					if (command.length() >= 7) {
+					if (command.length() >= 7) {//EXPORT
 						command = command.substr(7, command.length());
 						vfs_name = command.c_str();
 						//s.createDisc(vfs_name);
