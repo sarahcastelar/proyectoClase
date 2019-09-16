@@ -79,13 +79,20 @@ int main(){
 					break;
 				case 4: 
 					if (command.length() >= 3) {//RM
+						na = m.getNodoActual();
+						int find = command.find(na.nombre);
 						command = command.substr(3, command.length());
 						vfs_name = command.c_str();
-						m.rm(vfs_name,-1);
-						init = init.substr(0, 16);
-						na = m.getNodoActual();
-						if (na.indice != 0)
+						bool itsDot = m.rm(vfs_name,-1);
+						if (itsDot) {
+							init = init.substr(0, (init.length() - (command.length())-1));
+						}
+						else {
+							init = init.substr(0, 16);
+							na = m.getNodoActual();
+							if (na.indice != 0)
 							init = init + ">" + na.nombre;
+						}
 					}
 					break;
 				case 5:
