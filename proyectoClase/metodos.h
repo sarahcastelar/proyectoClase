@@ -10,18 +10,15 @@ class metodos {
 
 private:
 	metadata md;
-	BM bmA;
-	int contIndice = 1, contmk = 1, indices = 0, indiceBloques = 0;
+	int contIndice = 1, contmk = 1, indices = 1, indiceBloques = 0, contManualBloques = 0, cantBloquesUsados = 0;
 	inode nodoActual;
 	string fecha = "";
-	char* bitMap;
+	bool first = true;
 
 public:
 
-	char* initBitMap(char* bitMap, int inodeEntries)
+	char* initBitMap(char* bitMap)
 	{
-		md.cantBD = 33308 * inodeEntries;
-		bitMap = new char[md.cantBD / 8];
 		for (int i = 0; i < md.cantBD / 8; i++)
 		{
 			bitMap[i] = 0;
@@ -36,7 +33,6 @@ public:
 
 		for (int i = 0; i < md.cantBD / 7; i++)
 		{
-			cout << "entra\n";
 			char value;
 			value = bitMap[i];
 			for (int c = 1; c <= SHIFT + 1; c++)
@@ -51,7 +47,7 @@ public:
 		cout << endl;
 	}
 
-	void setOn(char* bitMap, int nBlock)
+	char* setOn(char* bitMap, int nBlock)
 	{
 		int positionByte = nBlock / 8;
 		int iniPosition = (nBlock / 8) * 8;
@@ -64,9 +60,10 @@ public:
 				break;
 			}
 		}
+		return bitMap;
 	}
 
-	void setOff(char* bitMap, int nBlock)
+	char* setOff(char* bitMap, int nBlock)
 	{
 		int positionByte = nBlock / 8;
 		int iniPosition = (nBlock / 8) * 8;
@@ -79,6 +76,7 @@ public:
 				break;
 			}
 		}
+		return bitMap;
 	}
 
 	inode getNodoActual() {
@@ -87,14 +85,6 @@ public:
 
 	void setNodoActual(inode na) {
 		nodoActual = na;
-	}
-
-	char* getBitMapActual() {
-		return bmA.bm;
-	}
-
-	void setBitMapActual(char * aux) {
-		bmA.bm = aux;
 	}
 
 	inode getRaiz() {
@@ -130,186 +120,94 @@ public:
 		return fecha;
 	}
 
-	inode iniBD(bloqueDirecto bd, inode inodo) {
-		bd = add(bd);
-		inodo.pBD0 = &bd.numBloque;
-		bd = add(bd);
-		inodo.pBD2 = &bd.numBloque;
-		bd = add(bd);
-		inodo.pBD3 = &bd.numBloque;
-		bd = add(bd);
-		inodo.pBD4 = &bd.numBloque;
-		bd = add(bd);
-		inodo.pBD5 = &bd.numBloque;
-		bd = add(bd);
-		inodo.pBD6 = &bd.numBloque;
-		bd = add(bd);
-		inodo.pBD7 = &bd.numBloque;
-		bd = add(bd);
-		inodo.pBD8 = &bd.numBloque;
-		bd = add(bd);
-		inodo.pBD9 = &bd.numBloque;
-		bd = add(bd);
-		inodo.pBD10 = &bd.numBloque;
-		bd = add(bd);
-		inodo.pBD11 = &bd.numBloque;
+	inode iniBD(inode inodo) { //INICIALIZAR LOS PRIMEROS 12.
+		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
+		if (!fileC) {
+			cout << "Error de apertura en el archivo!" << endl;
+			return inodo;
+		}
+
+		//cada bloque de dato creado se escribe en el archivo too.
+		for (size_t i = 0; i < 12; i++)
+		{
+			bloqueDirecto bd;
+			bd.indiceBloque = indiceBloques;
+			inodo.pBD[i] = &bd.indiceBloque; //APUNTA AL INDICE. 
+			int pos = sizeof(metadata) + md.bitmap_size + (sizeof(inode) * md.cant_entradas) + (sizeof(bd) * indiceBloques);
+			fileC.seekg(pos);
+			fileC.write(reinterpret_cast<char*>(&bd), sizeof(bd));
+			indiceBloques++;
+			contManualBloques++;
+		}	
+		fileC.close();
 		return inodo;
 	}
 
-	bloqueIndirecto1* iniB1(bloqueDirecto bd, bloqueIndirecto1 bi1, inode inodo) { //cada bloque i 1 nivel apunta a 1 bd.
-		bd = add(bd);
-		bi1.pBI1_0 = &bd;
-		bd = add(bd);
-		bi1.pBI1_1 = &bd;
-		bd = add(bd);
-		bi1.pBI1_2 = &bd;
-		bd = add(bd);
-		bi1.pBI1_3 = &bd;
-		bd = add(bd);
-		bi1.pBI1_4 = &bd;
-		bd = add(bd);
-		bi1.pBI1_5 = &bd;
-		bd = add(bd);
-		bi1.pBI1_6 = &bd;
-		bd = add(bd);
-		bi1.pBI1_7 = &bd;
-		bd = add(bd);
-		bi1.pBI1_8 = &bd;
-		bd = add(bd);
-		bi1.pBI1_9 = &bd;
-		bd = add(bd);
-		bi1.pBI1_10 = &bd;
-		bd = add(bd);
-		bi1.pBI1_11 = &bd;
-		bd = add(bd);
-		bi1.pBI1_12 = &bd;
-		bd = add(bd);
-		bi1.pBI1_13 = &bd;
-		bd = add(bd);
-		bi1.pBI1_14 = &bd;
-		bd = add(bd);
-		bi1.pBI1_15 = &bd;
-		inodo.pBi1 = &bi1;
+	bloqueIndirecto1* iniB1(bloqueIndirecto1 bi1, inode inodo) { //cada bloque i 1 nivel apunta a 1 bd.
+		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
+		if (!fileC) {
+			cout << "Error de apertura en el archivo!" << endl;
+			return inodo.pBi1;
+		}
+		for (int i = 0; i < 16; i++) {
+			bloqueDirecto bd;
+			bd.indiceBloque = indiceBloques;
+			bi1.pBI1[i] = &bd;
+			int pos = sizeof(metadata) + md.bitmap_size + (sizeof(inode) * md.cant_entradas) + (sizeof(bd) * indiceBloques);
+			fileC.seekg(pos);
+			fileC.write(reinterpret_cast<char*>(&bd), sizeof(bd));
+			contManualBloques++;
+			indiceBloques++;
+		}
+		fileC.close();
+
 		return inodo.pBi1;
 	}
 
-	bloqueIndirecto2* iniB2(bloqueDirecto bd,bloqueIndirecto1 bi1, bloqueIndirecto2 bi2,inode inodo) {//cada bi2nivel apunta a 32 bi1nivel.
-		bi2.pBI2_0 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_1 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_2 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_3 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_4 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_5 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_6 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_7 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_8 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_9 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_10 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_11 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_12 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_13 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_14 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_15 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_16 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_17 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_18 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_19 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_20 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_21 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_22 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_23 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_24 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_25 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_26 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_27 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_28 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_29 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_30 = iniB1(bd, bi1, inodo);
-		bi2.pBI2_31 = iniB1(bd, bi1, inodo);
+	bloqueIndirecto2* iniB2(bloqueIndirecto2 bi2, inode inodo) 
+	{//cada bi2nivel apunta a 32 bi1nivel.
+		//un bloque indirecto de 2do nivel apunta a 32 bloques de primer nivel.
+		for (int i = 0; i < 32; i++) {
+			bloqueIndirecto1 bi1;
+			bi2.pBI2[i] = iniB1(bi1, inodo);
+		}	
 		return inodo.pBi2;
 	}
 
-	bloqueIndirecto3* iniB3(bloqueDirecto bd, bloqueIndirecto1 bi1, bloqueIndirecto2 bi2, bloqueIndirecto3 bi3, inode inodo) {//UN bloqueIndirecto3nivel tiene 64 bloquesInd de 2do nivel.
-		bi3.pBI3_0 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_1 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_2 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_3 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_4 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_5 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_6 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_7 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_8 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_9 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_10 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_11 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_12 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_13 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_14 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_15 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_16 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_17 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_18 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_19 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_20 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_21 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_22 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_23 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_24 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_25 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_26 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_27 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_28 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_29 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_30 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_31 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_32 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_33 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_34 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_35 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_36 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_37 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_38 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_39 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_40 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_41 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_42 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_43 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_44 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_45 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_46 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_47 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_48 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_49 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_50 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_51 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_52 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_53 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_54 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_55 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_56 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_57 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_58 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_59 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_60 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_61 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_62 = iniB2(bd, bi1, bi2, inodo);
-		bi3.pBI3_63 = iniB2(bd, bi1, bi2, inodo);
+	bloqueIndirecto3* iniB3(bloqueIndirecto1 bi1, bloqueIndirecto2 bi2, bloqueIndirecto3 bi3, inode inodo) {//UN bloqueIndirecto3nivel tiene 64 bloquesInd de 2do nivel.
+		for (int i = 0; i < 64; i++)
+			bi3.pBI3[i] = iniB2(bi2, inodo);
 		return inodo.pBi3;
 	}
 
-	bloqueDirecto add(bloqueDirecto bd) {
-		bd.numBloque = indiceBloques;
-		indiceBloques++;
-		return bd;
+	inode inicializarNodo(inode inodo) {
+		//bloques directos 12.
+		inodo = iniBD(inodo);
+
+		//puntero a bloque indirecto de 1 nivel, que apunta a 16 bloques directos.
+		bloqueIndirecto1 bi1;
+		inodo.pBi1 = iniB1(bi1, inodo);
+
+		//puntero a bloque indirecto de 2 nivel, que apunta a 32 bloques indirectos 1 nivel
+		bloqueIndirecto2 bi2;
+		inodo.pBi2 = iniB2(bi2, inodo);
+
+		//puntero a bloque indirecto de 3 nivel, que apunta a 64 bloques indirectos de 2 nivel
+		bloqueIndirecto3 bi3;
+		inodo.pBi3 = iniB3(bi1, bi2, bi3, inodo);
+		return inodo;
 	}
 
 	void createDisc(const char* vfs_name, int inodeEntries) {
-		inode inodo;
 		fstream fileC(vfs_name, ios::out | ios::app | ios::binary);//ofstream
 		if (!fileC) {
 			cout << "Error de apertura en el archivo. " << endl;
 			return;
 		}
+
+		char* bitMap;
+		md.cantBD = 33308 * (inodeEntries - 1);
+		bitMap = new char[md.cantBD / 8];
 
 		//ESCRIBE METADATA.
 		if (fecha == "")
@@ -323,110 +221,31 @@ public:
 		fileC.write(reinterpret_cast<const char*>(&md), sizeof(md));
 
 		//ESCRIBE BITMAP.
-		bitMap = new char[md.cantBD / 8];
-		for (int i = 0; i < md.cantBD / 8; i++)
-		{
-			bitMap[i] = 0;
-		}
-		setBitMapActual(bitMap);
+		bitMap = initBitMap(bitMap);
 		size_t len = strlen(bitMap);
 		fileC.write((char*)& len, sizeof(len));
 		fileC.write(bitMap, len);
 
 		//ESCRIBE INODE ENTRIES. 
+		inode inodoRaiz, inodo = inode();
+		inodoRaiz.tamano = sizeof(inodo);
 		inodo.tamano = sizeof(inodo);
-		
-		//bloques directos 12.
-		bloqueDirecto bd;
-		inodo = iniBD(bd, inodo);
-
-		//puntero a bloque indirecto de 1 nivel, que apunta a 16 bloques directos.
-		bloqueIndirecto1 bi1;
-		inodo.pBi1 = iniB1(bd, bi1, inodo);
-
-		//puntero a bloque indirecto de 2 nivel, que apunta a 32 bloques indirectos 1 nivel
-		bloqueIndirecto2 bi2;
-		inodo.pBi2 = iniB2(bd, bi1, bi2, inodo);
-
-		//puntero a bloque indirecto de 3 nivel, que apunta a 64 bloques indirectos de 2 nivel
-		bloqueIndirecto3 bi3;
-		inodo.pBi3 = iniB3(bd, bi1, bi2, bi3, inodo);
-
-		cout << "cantidad de bloques directos al finaal: " << indiceBloques << endl;
 
 		for (size_t i = 0; i < md.cant_entradas; i++) {
-			inodo.indice = indices;
-			fileC.write(reinterpret_cast<const char*>(&inodo), sizeof(inodo));
-			indices++;
+			if (i == 0) {
+				inodoRaiz.indice = indices;
+				fileC.write(reinterpret_cast<const char*>(&inodoRaiz), sizeof(inodoRaiz));
+			}	
+			else {
+				inodo = inicializarNodo(inodo);
+				fileC.write(reinterpret_cast<const char*>(&inodo), sizeof(inodo));
+			}
 		}
-		//md.byteBloques = sizeof(metadata) + (sizeof(inode) * md.cant_entradas);
+
+
 		fileC.close();
 		insertRaiz();
-		//readFile();
-	}
-
-	void readFile() {
-		ifstream fileC(md.nombre, ios::in | ios::binary);
-		if (!fileC) {
-			cout << "Error de aprtura en el archivo!" << endl;
-		}
-
-		//LEE METADATA
-		fileC.seekg(0, ios::beg);
-		metadata struct_md;
-		fileC.read(reinterpret_cast<char*>(&struct_md), sizeof(struct_md));
-		cout << "--------leyendo metadata------" << endl;
-		cout << "Nombre del archivo:" << struct_md.nombre << endl
-			<< "Fecha creacion: " << struct_md.date << endl
-			<< "Autor: " << struct_md.owner << endl
-			<< "Tamano: " << struct_md.tamano << endl
-			<< "Inode Entries: " << struct_md.cant_entradas << endl
-			<< "BitMap size: " << struct_md.bitmap_size << endl;
-		cout << "--------fin leyendo meta------" << endl;
-
-		//LEE BITMAP.
-		size_t len = 0;
-		fileC.read((char*)&len, sizeof(len));
-		fileC.read(bitMap, len);
-		bitMap[len] = '\0';
-		setBitMapActual(bitMap);
-		/*const int SHIFT = 8 * sizeof(char) - 1;
-		const char MASK = 1 << SHIFT;
-
-		for (int i = 0; i < md.cantBD / 8; i++)
-		{
-			char value;
-			value = bitMap[i];
-			for (int c = 1; c <= SHIFT + 1; c++)
-			{
-				cout << (value & MASK ? '1' : '0');
-				value <<= 1;
-
-				if (c % 8 == 0)
-					cout << ' ';
-			}
-		}*/
-
-		//LEE INODE ENTRIES.
-		inode struct_i;
-		cout << "--------leyendo inodes------" << endl;
-		fileC.read(reinterpret_cast<char*>(&struct_i), sizeof(struct_i));
-
-		while (!fileC.eof()) {
-			cout << "Nombre Inode: " << struct_i.nombre << endl
-				<< "Fecha creacion: " << struct_i.fecha_creacion << endl
-				<< "Tipo: " << struct_i.type << endl
-				<< "Tamano: " << struct_i.tamano << endl
-				<< "Padre: " << struct_i.padre << endl
-				<< "First Child: " << struct_i.primerHijo << endl
-				<< "Right brother: " << struct_i.rightBrother << endl
-				<< "Indice Inodo: " << struct_i.indice << endl
-				<< "Occupied: " << struct_i.occupied << endl;
-			cout << "--------next inode------" << endl;
-			fileC.read(reinterpret_cast<char*>(&struct_i), sizeof(struct_i));
-		}
-		cout << "--------fin leyendo------" << endl;
-		fileC.close();
+		readFile();
 	}
 
 	void insertRaiz() {
@@ -453,6 +272,98 @@ public:
 		fileC.seekp(pos);
 		fileC.write(reinterpret_cast<char*>(&temp), sizeof(temp));
 		nodoActual = temp;
+
+		inode inodo;
+
+		for (size_t i = 1; i < md.cant_entradas; i++)
+		{
+			pos = sizeof(metadata) + md.bitmap_size + (sizeof(inode) * i);
+			inodo = inicializarNodo(inodo);
+			inodo.indice = indices;
+			inodo.padre = -1;
+			inodo.primerHijo = -1;
+			inodo.rightBrother = -1;
+			strcpy_s(inodo.nombre, "no name");
+			inodo.tamano = -1;
+			inodo.lastBlock = -1;
+			inodo.type = '-';
+			strcpy_s(inodo.fecha_creacion, "null");
+			inodo.occupied = 0;
+			inodo.cantBloquesUsados = -1;
+			indices++;
+			fileC.write(reinterpret_cast<char*>(&inodo), sizeof(inodo));
+		}
+		fileC.close();
+	}
+
+	void readFile() {
+		ifstream fileC(md.nombre, ios::in | ios::binary);
+		if (!fileC) {
+			cout << "Error de aprtura en el archivo!" << endl;
+		}
+
+		//LEE METADATA
+		fileC.seekg(0, ios::beg);
+		metadata struct_md;
+		fileC.read(reinterpret_cast<char*>(&struct_md), sizeof(struct_md));
+		cout << "--------leyendo metadata------" << endl;
+		cout << "Nombre del archivo:" << struct_md.nombre << endl
+			<< "Fecha creacion: " << struct_md.date << endl
+			<< "Autor: " << struct_md.owner << endl
+			<< "Tamano: " << struct_md.tamano << endl
+			<< "Inode Entries: " << struct_md.cant_entradas << endl
+			<< "BitMap size: " << struct_md.bitmap_size << endl;
+		cout << "--------fin leyendo meta------" << endl;
+
+		fileC.seekg(sizeof(metadata));
+		//LEE BITMAP.
+		char* bitMap;
+		bitMap = new char[md.cantBD / 8];
+		size_t len = 0;
+		fileC.read((char*)& len, sizeof(len));
+		fileC.read(bitMap, len);
+		bitMap[len] = '\0';
+		//printBitMap(bitMap);
+
+		//LEE INODE ENTRIES.
+		inode struct_i;
+		cout << "--------leyendo inodes------" << endl;
+		fileC.read(reinterpret_cast<char*>(&struct_i), sizeof(struct_i));
+		int contBloques = 0;
+
+		for (size_t i = 0; i < md.cant_entradas; i++)
+		{
+			contBloques = 0;
+			cout << "Nombre Inode: " << struct_i.nombre << endl
+				<< "Fecha creacion: " << struct_i.fecha_creacion << endl
+				<< "Tipo: " << struct_i.type << endl
+				<< "Tamano: " << struct_i.tamano << endl
+				<< "Padre: " << struct_i.padre << endl
+				<< "First Child: " << struct_i.primerHijo << endl
+				<< "Right brother: " << struct_i.rightBrother << endl
+				<< "Indice Inodo: " << struct_i.indice << endl
+				<< "Occupied: " << struct_i.occupied << endl
+				<< "Cant. Bloques Usados: " << struct_i.cantBloquesUsados << endl
+				<< "Last block: " << struct_i.lastBlock << endl;
+			cout << "--------next inode------" << endl;
+			fileC.read(reinterpret_cast<char*>(&struct_i), sizeof(struct_i));
+		} 	
+		cout << "--------fin leyendo------" << endl;
+
+		//LEER BLOQUES DE DATOS.
+		/*bloqueDirecto bd;
+		int pos = sizeof(metadata) + md.bitmap_size + (sizeof(inode) * md.cant_entradas);
+		fileC.seekg(pos);
+		fileC.read(reinterpret_cast<char*>(&bd), sizeof(bd));
+		for (int i = 0; i < md.cantBD; i++) {
+			cout << " Ind: " << bd.indiceBloque;
+				//<< "data adentro: " << bd.bloque << endl;
+			//cout << endl;
+			fileC.read(reinterpret_cast<char*>(&bd), sizeof(bd));
+		}*/
+		//cout << "cantidad de bloques son: " << md.cantBD << endl;
+		//cout << "indices sacados son: " << contManualBloques << endl;
+
 		fileC.close();
 	}
 
@@ -468,7 +379,10 @@ public:
 		fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
 
 		while (!fileC.eof()) {
+			cout << "entra" << endl;
 			if (temp.occupied == 0) {
+				cout << "???" << endl;
+				fileC.close();
 				return temp.indice;
 			}
 			fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
@@ -477,26 +391,31 @@ public:
 		return -1;
 	}
 
-	void mkdir(const char* fileName, inode nodoActual) {
+	void mkdir(const char* fileName, inode nodoActual, bool itsD) {
 		int availabeSpace = nextAvailable();
-		if (availabeSpace != -1){
+		cout << "availableSpace" << availabeSpace;
+		if (availabeSpace != -1) {
 			inode inodeE, temp;
 			int pos = -1;
 
 			fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
 			if (!fileC) {
 				cout << "Error de apertura en el archivo!" << endl;
-			}		
+			}
 
+			if (itsD)
+				inodeE.type = 'd';
+			else
+				inodeE.type = 'f';
 			//crea el directorio vacio
 			strcpy_s(inodeE.nombre, fileName);
-			inodeE.type = 'd';
 			strcpy_s(inodeE.fecha_creacion, fecha.c_str());
 			inodeE.primerHijo = -1;
 			inodeE.indice = availabeSpace;
 			inodeE.occupied = 1;
 			inodeE.padre = nodoActual.indice;
 			inodeE.tamano = sizeof(inode);
+			inodeE.type = 'd';
 			contIndice++;
 
 			//actualiza el rightBrother.	
@@ -524,6 +443,7 @@ public:
 			pos = sizeof(metadata) + md.bitmap_size + ((sizeof(inode)) * inodeE.indice);
 			fileC.seekg(pos);
 			fileC.write(reinterpret_cast<char*>(&inodeE), sizeof(inodeE));
+
 			fileC.close();
 			//readFile();
 			contmk++;
@@ -537,6 +457,7 @@ public:
 		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
 		if (!fileC) {
 			cout << "Error de apertura en el archivo!" << endl;
+			return;
 		}
 
 		int pos = sizeof(metadata) + md.bitmap_size;
@@ -563,7 +484,7 @@ public:
 			fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
 		}
 
-		if (resultado == -1 && !itsDot) 
+		if (resultado == -1 && !itsDot)
 			cout << "File or Directory non existent. " << endl;
 
 		fileC.close();
@@ -600,7 +521,7 @@ public:
 				fileC.seekg(pos);
 				fileC.read(reinterpret_cast<char*>(&aux), sizeof(aux));
 				cout << left << setw(10) << aux.nombre << setw(13) << aux.type
-				<< setw(7) << right << aux.tamano << endl;
+					<< setw(7) << right << aux.tamano << endl;
 
 				//ver si hay right brothers. 
 				while (aux.rightBrother != -1) {
@@ -620,16 +541,14 @@ public:
 	}
 
 	int  findPos(const char* fileName) {
-		/*
-			FUNCION QUE DEVUELVE EL INDICE DEL NODO A BORRAR.
-		*/
+		//FUNCION QUE DEVUELVE EL INDICE DE UN NODO.
 		inode temp;
 		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
 		if (!fileC) {
 			cout << "Error de apertura en el archivo!" << endl;
 		}
 
-		int pos = sizeof(metadata) + md.bitmap_size ;
+		int pos = sizeof(metadata) + md.bitmap_size;
 		int resultado = -1;
 		fileC.seekg(pos);
 		fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
@@ -637,7 +556,6 @@ public:
 		while (!fileC.eof()) {
 			char* str = temp.nombre;
 			resultado = strcmp(str, fileName);
-			cout << "str: " << str << " fileName: " << fileName << endl;
 			if (resultado == 0) {
 				return temp.indice;
 			}
@@ -690,7 +608,7 @@ public:
 		pos = sizeof(metadata) + md.bitmap_size + (sizeof(inode) * temp.primerHijo);
 		fileC.seekg(pos);
 		fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
-		
+
 		return temp.occupied;
 	}
 
@@ -762,26 +680,163 @@ public:
 		return itsDot;
 	}
 
+	int nextBitAvailable(char* bitMap) {
+		const int SHIFT = 8 * sizeof(char) - 1;
+		const char MASK = 1 << SHIFT;
+		int n = -1;
+		for (int i = 0; i < md.cantBD / 8; i++)
+		{
+			char value;
+			value = bitMap[i];
+			for (int c = 1; c <= SHIFT + 1; c++)
+			{
+				if ((value & MASK) == 0) {
+					n = (7 * i) + c;
+					break;
+				}
+				value <<= 1;
+			}
+			if (n != -1)
+				break;
+		}
+		return n;
+	}
+
 	void import(const char* fileName) {
-		/*
-			se va leyendo el archivo, se agarran los 4096 bytes 
-			y los guardo en algun bloque directo en mi vfs archivo, 
-			hasta que todo el archivo se haya leido correctamente,
-			actualizo el mapa de bits para poner todos los 
-			bloques directos usados en ocupado.
-		*/
-		fstream fileC(fileName, ios::in | ios::out | ios::binary);
+		//abrimos el file a importar.
+	
+		ifstream fileC(fileName, ios::in | ios::binary);
+		if (!fileC) {
+			cout << "Error de apertura en el archivo!" << endl;
+			return;
+		}
+
+		//leemos del file cada BD.
+		while (!fileC.eof()) {
+			bloqueDirecto bd;
+			fileC.read(bd.bloque, 4096);
+
+			//enviamos el bloque a nuestro vfs.
+			import_1(fileName, bd, cantBloquesUsados);
+			cantBloquesUsados++;
+		}
+		fileC.close();
+	}//NO HE PROBADO EL IMPORT AUN.
+
+	void import_1(const char* fileName, bloqueDirecto bd, int cantBloquesU) {
+		//aqui se va poniendo el bloque leido del file a importar a nuevo vfs.
+		//abrimos nuestro vfs.
+		fstream fileC("route", ios::in | ios::out | ios::binary);
+		if (!fileC) {
+			cout << "Error de apertura en el archivo!" << endl;
+			return;
+		}
+
+		int indice = findPos(fileName);
+		if (indice == -1) //LO ESCRIBE VACIO. lit solo escribe su nombre en el inode.
+			mkdir(fileName, getNodoActual(), false);
+
+		//aqui es cuando el inode esta en nuestro vfs, solo vamos agregando los bloques
+		//del file a importar a nuestro vfs. 
+		inode inodo;
+		bloqueDirecto bdInodo;
+		
+		//vemos en el bitmap cual es el proximo bloque vacio.
+		char* bitMap;
+		bitMap = new char[md.cantBD / 8];
+		size_t len = 0;
+		fileC.read((char*)& len, sizeof(len));
+		fileC.read(bitMap, len);
+		bitMap[len] = '\0';
+		int indiceBloqueVacio = nextBitAvailable(bitMap);
+		int pos = sizeof(metadata) + md.bitmap_size + (sizeof(inode) * md.cant_entradas) + (sizeof(bdInodo) + indiceBloqueVacio);
+		fileC.seekg(pos);
+		fileC.read(reinterpret_cast<char*>(&bdInodo), sizeof(bdInodo));
+		bdInodo.bloque = bd.bloque; //SE LE ASIGNA LA INFO DEL IMPORT A NUESTRO VFS.
+
+		updateBitmap(indiceBloqueVacio, true, bitMap);
+		inodo.cantBloquesUsados = cantBloquesU;
+		fileC.close();
+	}
+
+	void export_(const char* fileName) {
+		//pasamos de nuestro vfs a la compu.
+		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
+		if (!fileC) {
+			cout << "Error de apertura en el archivo!" << endl;
+			return;
+		}
+
+		inode inodo;
+		bloqueDirecto aux;
+
+		int indiceNodo = findPos(fileName);
+		int pos = sizeof(metadata) + md.bitmap_size + (sizeof(inode) * indiceNodo);
+		fileC.seekg(pos);
+		fileC.read(reinterpret_cast<char*>(&inodo), sizeof(inodo));
+		cout << "cant bloques usados "<< inodo.cantBloquesUsados << endl;
+		int n = -1;
+		pos = sizeof(metadata);
+		fileC.seekg(pos);
+		char* bitMap;
+		bitMap = new char[md.cantBD / 8];
+		size_t len = 0;
+		fileC.read((char*)& len, sizeof(len));
+		fileC.read(bitMap, len);
+		bitMap[len] = '\0';
+		for (size_t i = 0; i < inodo.cantBloquesUsados; i++)
+		{
+		//	aux = inodo.pBD_[i].bloque;
+			n = nextBitAvailable(bitMap);
+			pos = sizeof(metadata) + md.bitmap_size + (sizeof(inode) * md.cant_entradas) + (sizeof(bloqueDirecto) + n);
+			fileC.seekg(pos);
+			fileC.read(reinterpret_cast<char*>(&aux), sizeof(aux));
+			export_1(fileName, aux);
+		}
+		fileC.close();
+	}
+
+	void export_1(const char* fileName, bloqueDirecto aux) {
+		string s(fileName);
+		s = s + "(1).dat";
+		ofstream fileC(s, ios::out | ios::binary);
+		if (!fileC) {
+			cout << "Error de apertura en el archivo!" << endl;
+			return;
+		}
+
+		//fileC.write(reinterpret_cast<char*>(&aux.bloque), sizeof(aux.bloque));
+
+		fileC.write(aux.bloque, 4096);
+		fileC.close();
+	}
+
+	void updateBitmap(int nBlock, bool on, char * bitMap) {
+		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
 		if (!fileC) {
 			cout << "Error de apertura en el archivo!" << endl;
 		}
 
-		int pos = sizeof(metadata) + md.bitmap_size;
-
+		//leo el bitmap del archivo
+		int pos = sizeof(metadata);
 		fileC.seekg(pos);
-		fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
+		size_t len = 0;
+		fileC.read((char*)& len, sizeof(len));
+		fileC.read(bitMap, len);
+		bitMap[len] = '\0';
 
+		if (on)
+			bitMap = setOn(bitMap, nBlock);
+		else
+			bitMap = setOff(bitMap, nBlock);
 
-
+		//escribo el actualizado
+		len = strlen(bitMap);
+		fileC.write((char*)& len, sizeof(len));
+		fileC.write(bitMap, len);
 		fileC.close();
 	}
+
+	
 };
+

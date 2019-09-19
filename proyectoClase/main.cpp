@@ -44,7 +44,7 @@ int main(){
 					if (command.length() >= 6) {//MKDIR
 						command = command.substr(6, command.length());
 						vfs_name = command.c_str();
-						m.mkdir(vfs_name,na);
+						m.mkdir(vfs_name,na, true);
 					}
 					break;
 				case 2:
@@ -99,14 +99,14 @@ int main(){
 					if (command.length() >= 7) {//IMPORT
 						command = command.substr(7, command.length());
 						vfs_name = command.c_str();
-						//s.createDisc(vfs_name);
+						m.import(vfs_name);
 					}
 					break;
 				case 6:
 					if (command.length() >= 7) {//EXPORT
 						command = command.substr(7, command.length());
 						vfs_name = command.c_str();
-						//s.createDisc(vfs_name);
+						m.export_(vfs_name);
 					}
 					break;
 				default:
