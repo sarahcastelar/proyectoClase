@@ -30,7 +30,7 @@ struct inode {
 	int primerHijo;
 	int rightBrother;
 	int cantBloquesUsados;
-	int firstBloc;
+	int firstBlock;
 	int lastBlock;
 	bool occupied;
 	unsigned int* pBD[12];

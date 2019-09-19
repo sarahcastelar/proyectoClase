@@ -12,6 +12,7 @@ int main(){
 	const char* vfs_name;
 	int n = -1;
 	inode na;
+	bool vacio = true;
 	na = m.getNodoActual();
 	
 	cout << "Microsoft Windows [Version 10.0.18362.356] \n(c)2019 Microsoft Corporation.All rights reserved.\n " << endl;
@@ -32,11 +33,14 @@ int main(){
 				switch (i) {
 				case 0:
 					if (command.length() >= 12) {//CREATE DISC
-						command = command.substr(12, command.length());
-						vfs_name = command.c_str();
-						cout << "# de inode entries: " << endl;
-						cin >> n;
-						m.createDisc(vfs_name, n+1);
+						if (vacio) {
+							command = command.substr(12, command.length());
+							vfs_name = command.c_str();
+							cout << "# de inode entries: " << endl;
+							cin >> n;
+							m.createDisc(vfs_name, n + 1);
+							vacio = false;
+						}
 						//m.readFile();
 					}
 					break;

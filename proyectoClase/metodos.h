@@ -10,24 +10,28 @@ class metodos {
 
 private:
 	metadata md;
-	int contIndice = 1, contmk = 1, indices = 1, indiceBloques = 0, contManualBloques = 0, cantBloquesUsados = 0;
+	int contIndice = 1, contmk = 1, indices = 1, indiceBloques = 0, contManualBloques = 0, cantBloquesUsados = 1, contNormal = 0;
 	inode nodoActual;
 	string fecha = "";
-	bool first = true;
+	bool first = true, importCreado = false;
+	char* bitMap;
 
 public:
 
 	char* initBitMap(char* bitMap)
 	{
+		int j = 1;
 		for (int i = 0; i < md.cantBD / 8; i++)
 		{
 			bitMap[i] = 0;
+			j++;
 		}
 		return bitMap;
 	}
 
 	void printBitMap(char* bitMap)
 	{
+		int j = 1;
 		const int SHIFT = 8 * sizeof(char) - 1;
 		const char MASK = 1 << SHIFT;
 
@@ -37,6 +41,7 @@ public:
 			value = bitMap[i];
 			for (int c = 1; c <= SHIFT + 1; c++)
 			{
+				j++;
 				cout << (value & MASK ? '1' : '0');
 				value <<= 1;
 
@@ -205,7 +210,7 @@ public:
 			return;
 		}
 
-		char* bitMap;
+		//char* bitMap;
 		md.cantBD = 33308 * (inodeEntries - 1);
 		bitMap = new char[md.cantBD / 8];
 
@@ -225,13 +230,14 @@ public:
 		size_t len = strlen(bitMap);
 		fileC.write((char*)& len, sizeof(len));
 		fileC.write(bitMap, len);
+		//printBitMap(bitMap);
 
 		//ESCRIBE INODE ENTRIES. 
 		inode inodoRaiz, inodo = inode();
 		inodoRaiz.tamano = sizeof(inodo);
 		inodo.tamano = sizeof(inodo);
 
-		for (size_t i = 0; i < md.cant_entradas; i++) {
+		for (size_t i = 0; i < md.cant_entradas - 1; i++) {
 			if (i == 0) {
 				inodoRaiz.indice = indices;
 				fileC.write(reinterpret_cast<const char*>(&inodoRaiz), sizeof(inodoRaiz));
@@ -241,7 +247,6 @@ public:
 				fileC.write(reinterpret_cast<const char*>(&inodo), sizeof(inodo));
 			}
 		}
-
 
 		fileC.close();
 		insertRaiz();
@@ -377,24 +382,33 @@ public:
 		int pos = sizeof(metadata) + md.bitmap_size;
 		fileC.seekg(pos);
 		fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
+		bool foundIt = false;
 
-		while (!fileC.eof()) {
+		for (size_t i = 0; i < md.cant_entradas; i++) {
 			cout << "entra" << endl;
 			if (temp.occupied == 0) {
 				cout << "???" << endl;
 				fileC.close();
+			//	foundIt = true;
+				cout << "entro al forr y next nodo avai es: " << temp.indice << endl;
+				fileC.close();
 				return temp.indice;
 			}
+
+			//if (foundIt)
+				//break;
+
 			fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
 		}
 		fileC.close();
+		cout << "termina al for y no entra y retorna -1: " << temp.indice << endl;
 		return -1;
 	}
 
 	void mkdir(const char* fileName, inode nodoActual, bool itsD) {
 		int availabeSpace = nextAvailable();
-		cout << "availableSpace" << availabeSpace;
-		if (availabeSpace != -1) {
+		cout << "EN MKDIR, available Space es: " << availabeSpace << endl;
+		if (availabeSpace > 0) {
 			inode inodeE, temp;
 			int pos = -1;
 
@@ -450,6 +464,7 @@ public:
 		}
 		else
 			cout << "entries full!" << endl;
+		readFile();
 	}
 
 	void cd(const char* fileName, bool itsDot) {
@@ -553,10 +568,11 @@ public:
 		fileC.seekg(pos);
 		fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
 
-		while (!fileC.eof()) {
+		for (int i = 0; i < md.cant_entradas; i++) {
 			char* str = temp.nombre;
 			resultado = strcmp(str, fileName);
 			if (resultado == 0) {
+				fileC.close();
 				return temp.indice;
 			}
 			fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
@@ -691,7 +707,7 @@ public:
 			for (int c = 1; c <= SHIFT + 1; c++)
 			{
 				if ((value & MASK) == 0) {
-					n = (7 * i) + c;
+					n = (7 * i) + (c - 1);
 					break;
 				}
 				value <<= 1;
@@ -703,59 +719,175 @@ public:
 	}
 
 	void import(const char* fileName) {
-		//abrimos el file a importar.
-	
 		ifstream fileC(fileName, ios::in | ios::binary);
 		if (!fileC) {
-			cout << "Error de apertura en el archivo!" << endl;
+			cout << " en import Error de apertura en el archivo!" << endl;
 			return;
 		}
 
-		//leemos del file cada BD.
-		while (!fileC.eof()) {
-			bloqueDirecto bd;
-			fileC.read(bd.bloque, 4096);
-
-			//enviamos el bloque a nuestro vfs.
-			import_1(fileName, bd, cantBloquesUsados);
-			cantBloquesUsados++;
+		int firstBlock = -1;
+		if (cantBloquesUsados == 1) {
+			firstBlock = nextBitAvailable(getBitMap());
 		}
-		fileC.close();
-	}//NO HE PROBADO EL IMPORT AUN.
 
-	void import_1(const char* fileName, bloqueDirecto bd, int cantBloquesU) {
-		//aqui se va poniendo el bloque leido del file a importar a nuevo vfs.
-		//abrimos nuestro vfs.
-		fstream fileC("route", ios::in | ios::out | ios::binary);
+		
+		while (!fileC.eof()) { 
+			char * bloque = new char[4096];
+			
+			fileC.read(bloque, 4096);
+			import_1(fileName, bloque);
+		}
+		bitMap = getBitMap();
+		actualizarCantBD(firstBlock, fileName);
+
+		for (size_t i = 0; i < contNormal; i++)
+		{
+			bitMap = updateBitmap(i, true, bitMap);
+			setBitMap(bitMap);
+		}
+		int n = -2;
+		n = nextBitAvailable(bitMap);
+
+		fileC.close();
+	}
+
+	void actualizarCantBD(int firstBlock, const char* fileName) {
+		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
 		if (!fileC) {
 			cout << "Error de apertura en el archivo!" << endl;
 			return;
 		}
 
 		int indice = findPos(fileName);
-		if (indice == -1) //LO ESCRIBE VACIO. lit solo escribe su nombre en el inode.
-			mkdir(fileName, getNodoActual(), false);
+		inode nodo;
 
-		//aqui es cuando el inode esta en nuestro vfs, solo vamos agregando los bloques
-		//del file a importar a nuestro vfs. 
-		inode inodo;
-		bloqueDirecto bdInodo;
-		
-		//vemos en el bitmap cual es el proximo bloque vacio.
-		char* bitMap;
+		int pos = sizeof(metadata) + md.bitmap_size + (sizeof(inode) * indice);
+		fileC.seekg(pos);
+		fileC.read(reinterpret_cast<char*>(&nodo), sizeof(nodo));
+
+		nodo.cantBloquesUsados = contNormal;
+		nodo.firstBlock = nextBitAvailable(getBitMap());
+		cout << "firstBlock" << firstBlock << "bloquesUsados: " << contNormal;
+
+		pos = sizeof(metadata) + md.bitmap_size + (sizeof(inode) * indice);
+		fileC.seekg(pos);
+		fileC.write(reinterpret_cast<char*>(&nodo), sizeof(nodo));
+		fileC.close();
+	}
+
+	void funciona(const char* fileName, bloqueDirecto bd) {
+		string s(fileName);
+		//png, jpeg, doc, mp4
+		string commands[3] = { ".png", ".jpeg", ".doc" };
+		for (size_t i = 0; i < 3; i++)
+		{
+			int encontro = s.find(commands[i]);
+			if (encontro != string::npos) {
+				switch (i) {
+				case 0:
+					s = s.substr(0, s.length() - 4);
+					s = s + "1.png";
+					break;
+				case 1:
+					s = s.substr(0, s.length() - 5);
+					s = s + "1.jpeg";
+					break;
+				case 2:
+					s = s.substr(0, s.length() - 4);
+					s = s + "1.doc";
+					break;
+				}
+			}
+		}
+
+		string s1 = ".mp4";
+		int encontro = s.find(s1);
+		if (encontro != string::npos) {
+			s = s.substr(0, s.length() - 4);
+			s = s + "1.mp4";
+		}
+
+		ofstream fileC(s, ios::out | ios::app| ios::binary);
+		if (!fileC) {
+			cout << " en funciona. Error de apertura en el archivo!" << endl;
+			return;
+		}
+		fileC.seekp(0, ios::end);
+		fileC.write(bd.bloque, 4096);
+		fileC.close();
+	}
+
+	char* getBitMap() {
+		/*char* bitMap;
 		bitMap = new char[md.cantBD / 8];
+		ifstream fileC(md.nombre, ios::in | ios::binary);
+		if (!fileC) {
+			cout << "Error de apertura en el archivo!" << endl;
+			return bitMap;
+		}
+		int pos = sizeof(metadata);
+		fileC.seekg(pos);
 		size_t len = 0;
 		fileC.read((char*)& len, sizeof(len));
 		fileC.read(bitMap, len);
-		bitMap[len] = '\0';
-		int indiceBloqueVacio = nextBitAvailable(bitMap);
-		int pos = sizeof(metadata) + md.bitmap_size + (sizeof(inode) * md.cant_entradas) + (sizeof(bdInodo) + indiceBloqueVacio);
-		fileC.seekg(pos);
-		fileC.read(reinterpret_cast<char*>(&bdInodo), sizeof(bdInodo));
-		bdInodo.bloque = bd.bloque; //SE LE ASIGNA LA INFO DEL IMPORT A NUESTRO VFS.
+		bitMap[len] = '\0';*/
+		return bitMap;
+	}
 
-		updateBitmap(indiceBloqueVacio, true, bitMap);
-		inodo.cantBloquesUsados = cantBloquesU;
+	void setBitMap(char * bm) {
+		bitMap = bm;
+	}
+
+	void porMientras(const char* fileName) {
+		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
+		if (!fileC) {
+			cout << "Error de apertura en el archivo!" << endl;
+			return;
+		}
+
+		int indi = findPos(fileName);
+		if (indi == -1) { //LO ESCRIBE VACIO. lit solo escribe su nombre en el inode.
+			mkdir(fileName, getNodoActual(), false);
+			indi = findPos(fileName);
+			importCreado = true;
+		}
+		
+		cout << "indice del archivo es: " << indi;
+
+		fileC.close();
+	}
+
+	void import_1(const char* fileName, char* bloque) {
+		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
+		if (!fileC) {
+			cout << "Error de apertura en el archivo!" << endl;
+			return;
+		}
+
+		int indi = findPos(fileName);
+			if (indi == -1) { //LO ESCRIBE VACIO. lit solo escribe su nombre en el inode.
+				mkdir(fileName, getNodoActual(), false);
+				indi = findPos(fileName);
+			}
+
+		bloqueDirecto aux;
+		
+		//vemos en el bitmap cual es el proximo bloque vacio.
+		bitMap = getBitMap();
+		int indiceBloqueVacio = nextBitAvailable(bitMap);
+		indiceBloqueVacio += contNormal;
+		contNormal++;
+		//nos posicionamos en ese bloque.
+		int pos = sizeof(metadata) + md.bitmap_size + (sizeof(inode) * md.cant_entradas) + (sizeof(aux) * (indiceBloqueVacio));
+		fileC.seekg(pos);
+		fileC.read(reinterpret_cast<char*>(&aux), sizeof(aux));
+		aux.bloque = bloque; //SE LE ASIGNA LA INFO DEL IMPORT A NUESTRO VFS.
+
+		//lo volvemos a escribir en el archivo pero corregido.
+		pos = sizeof(metadata) + md.bitmap_size + (sizeof(inode) * md.cant_entradas) + (sizeof(aux) * indiceBloqueVacio);
+		fileC.seekg(pos);
+		fileC.write(reinterpret_cast<char*>(&aux), sizeof(aux));
+
 		fileC.close();
 	}
 
@@ -770,71 +902,85 @@ public:
 		inode inodo;
 		bloqueDirecto aux;
 
+		//saber cuantos bloques uso ese archivo.
 		int indiceNodo = findPos(fileName);
 		int pos = sizeof(metadata) + md.bitmap_size + (sizeof(inode) * indiceNodo);
 		fileC.seekg(pos);
 		fileC.read(reinterpret_cast<char*>(&inodo), sizeof(inodo));
-		cout << "cant bloques usados "<< inodo.cantBloquesUsados << endl;
-		int n = -1;
-		pos = sizeof(metadata);
-		fileC.seekg(pos);
-		char* bitMap;
-		bitMap = new char[md.cantBD / 8];
-		size_t len = 0;
-		fileC.read((char*)& len, sizeof(len));
-		fileC.read(bitMap, len);
-		bitMap[len] = '\0';
-		for (size_t i = 0; i < inodo.cantBloquesUsados; i++)
+
+		//exportandolo.
+		int n = inodo.firstBlock;
+
+		for (size_t i = inodo.firstBlock; i < inodo.cantBloquesUsados+1; i++)
 		{
-		//	aux = inodo.pBD_[i].bloque;
-			n = nextBitAvailable(bitMap);
-			pos = sizeof(metadata) + md.bitmap_size + (sizeof(inode) * md.cant_entradas) + (sizeof(bloqueDirecto) + n);
+			pos = sizeof(metadata) + md.bitmap_size + (sizeof(inode) * md.cant_entradas) + (sizeof(bloqueDirecto) * i);
 			fileC.seekg(pos);
 			fileC.read(reinterpret_cast<char*>(&aux), sizeof(aux));
 			export_1(fileName, aux);
 		}
+		
 		fileC.close();
 	}
 
 	void export_1(const char* fileName, bloqueDirecto aux) {
 		string s(fileName);
-		s = s + "(1).dat";
-		ofstream fileC(s, ios::out | ios::binary);
+		//png, jpeg, doc, mp4
+		string commands[3] = { ".png", ".jpeg", ".doc"};
+		for (size_t i = 0; i < 3; i++)
+		{
+			int encontro = s.find(commands[i]);
+			if (encontro != string::npos) {
+				switch (i) {
+				case 0:
+					s = s.substr(0, s.length() - 4);
+					s = s + "1.png";
+					break;
+				case 1:
+					s = s.substr(0, s.length() - 5);
+					s = s + "1.jpeg";
+					break;
+				case 2: 
+					s = s.substr(0, s.length() - 4);
+					s = s + "1.doc";
+					break;
+				}
+			}
+		}
+
+		string s1 = ".mp4";
+		int encontro = s.find(s1);
+		if (encontro != string::npos) {
+			s = s.substr(0, s.length() - 4);
+			s = s + "1.mp4";
+		}
+
+		ofstream fileC(s, ios::out | ios::app | ios::binary);
 		if (!fileC) {
 			cout << "Error de apertura en el archivo!" << endl;
 			return;
 		}
-
-		//fileC.write(reinterpret_cast<char*>(&aux.bloque), sizeof(aux.bloque));
-
+		fileC.seekp(0, ios::end);
 		fileC.write(aux.bloque, 4096);
 		fileC.close();
 	}
 
-	void updateBitmap(int nBlock, bool on, char * bitMap) {
-		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
-		if (!fileC) {
-			cout << "Error de apertura en el archivo!" << endl;
-		}
-
+	char* updateBitmap(int nBlock, bool on, char * bitMap) {
 		//leo el bitmap del archivo
-		int pos = sizeof(metadata);
-		fileC.seekg(pos);
-		size_t len = 0;
-		fileC.read((char*)& len, sizeof(len));
-		fileC.read(bitMap, len);
-		bitMap[len] = '\0';
+		bitMap = getBitMap();
 
 		if (on)
 			bitMap = setOn(bitMap, nBlock);
 		else
 			bitMap = setOff(bitMap, nBlock);
 
-		//escribo el actualizado
-		len = strlen(bitMap);
+		/*//escribo el actualizado
+		int pos = sizeof(metadata);
+		fileC.seekg(pos);
+		size_t len = strlen(bitMap);
 		fileC.write((char*)& len, sizeof(len));
 		fileC.write(bitMap, len);
-		fileC.close();
+		fileC.close();*/
+		return bitMap;
 	}
 
 	
