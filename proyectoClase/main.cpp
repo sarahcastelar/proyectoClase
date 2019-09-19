@@ -95,7 +95,7 @@ int main(){
 							init = init.substr(0, 16);
 							na = m.getNodoActual();
 							if (na.indice != 0)
-							init = init + ">" + na.nombre;
+							init = init + ">" + na.nombre + ">";
 						}
 					}
 					break;

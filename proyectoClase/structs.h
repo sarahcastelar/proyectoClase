@@ -84,9 +84,11 @@ struct bloqueIndirecto2 {//1 bi2 apunta a 32 bi1.
 };
 
 struct bloqueIndirecto3 {//un bloque de 3 nivel apunta a 64 bloques indirectos de 2 nivel.
+	
 	bloqueIndirecto2* pBI3[64];
 	bloqueIndirecto3() {
 		for (int i = 0; i < 64; i++)
 			pBI3[i] = nullptr;
 	}
+	
 };

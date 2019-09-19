@@ -126,62 +126,76 @@ public:
 	}
 
 	inode iniBD(inode inodo) { //INICIALIZAR LOS PRIMEROS 12.
-		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
-		if (!fileC) {
-			cout << "Error de apertura en el archivo!" << endl;
-			return inodo;
-		}
+		int numEsperado = 33308 * (md.cant_entradas - 1);
+		if (indiceBloques != numEsperado) {
+			fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
+			if (!fileC) {
+				cout << "Error de apertura en el archivo!" << endl;
+				return inodo;
+			}
 
-		//cada bloque de dato creado se escribe en el archivo too.
-		for (size_t i = 0; i < 12; i++)
-		{
-			bloqueDirecto bd;
-			bd.indiceBloque = indiceBloques;
-			inodo.pBD[i] = &bd.indiceBloque; //APUNTA AL INDICE. 
-			int pos = sizeof(metadata) + md.bitmap_size + (sizeof(inode) * md.cant_entradas) + (sizeof(bd) * indiceBloques);
-			fileC.seekg(pos);
-			fileC.write(reinterpret_cast<char*>(&bd), sizeof(bd));
-			indiceBloques++;
-			contManualBloques++;
-		}	
-		fileC.close();
+			//cada bloque de dato creado se escribe en el archivo too.
+			for (size_t i = 0; i < 12; i++)
+			{
+				bloqueDirecto bd;
+				bd.indiceBloque = indiceBloques;
+				inodo.pBD[i] = &bd.indiceBloque; //APUNTA AL INDICE. 
+				int pos = sizeof(metadata) + md.bitmap_size + (sizeof(inode) * md.cant_entradas) + (sizeof(bd) * indiceBloques);
+				fileC.seekg(pos);
+				fileC.write(reinterpret_cast<char*>(&bd), sizeof(bd));
+				indiceBloques++;
+				contManualBloques++;
+			}
+			fileC.close();
+		}
 		return inodo;
 	}
 
 	bloqueIndirecto1* iniB1(bloqueIndirecto1 bi1, inode inodo) { //cada bloque i 1 nivel apunta a 1 bd.
-		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
-		if (!fileC) {
-			cout << "Error de apertura en el archivo!" << endl;
-			return inodo.pBi1;
+		int numEsperado = 33308 * (md.cant_entradas - 1);
+		if (indiceBloques != numEsperado) {
+			fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
+			if (!fileC) {
+				cout << "Error de apertura en el archivo!" << endl;
+				return inodo.pBi1;
+			}
+			for (int i = 0; i < 16; i++) {
+				bloqueDirecto bd;
+				bd.indiceBloque = indiceBloques;
+				bi1.pBI1[i] = &bd;
+				int pos = sizeof(metadata) + md.bitmap_size + (sizeof(inode) * md.cant_entradas) + (sizeof(bd) * indiceBloques);
+				fileC.seekg(pos);
+				fileC.write(reinterpret_cast<char*>(&bd), sizeof(bd));
+				contManualBloques++;
+				indiceBloques++;
+			}
+			fileC.close();
 		}
-		for (int i = 0; i < 16; i++) {
-			bloqueDirecto bd;
-			bd.indiceBloque = indiceBloques;
-			bi1.pBI1[i] = &bd;
-			int pos = sizeof(metadata) + md.bitmap_size + (sizeof(inode) * md.cant_entradas) + (sizeof(bd) * indiceBloques);
-			fileC.seekg(pos);
-			fileC.write(reinterpret_cast<char*>(&bd), sizeof(bd));
-			contManualBloques++;
-			indiceBloques++;
-		}
-		fileC.close();
-
 		return inodo.pBi1;
 	}
 
 	bloqueIndirecto2* iniB2(bloqueIndirecto2 bi2, inode inodo) 
 	{//cada bi2nivel apunta a 32 bi1nivel.
 		//un bloque indirecto de 2do nivel apunta a 32 bloques de primer nivel.
-		for (int i = 0; i < 32; i++) {
-			bloqueIndirecto1 bi1;
-			bi2.pBI2[i] = iniB1(bi1, inodo);
-		}	
+		int numEsperado = 33308 * (md.cant_entradas - 1);
+		if (indiceBloques != numEsperado) {
+			for (int i = 0; i < 32; i++) {
+				bloqueIndirecto1 bi1;
+				bi2.pBI2[i] = iniB1(bi1, inodo);
+			}
+		}
 		return inodo.pBi2;
+
 	}
 
 	bloqueIndirecto3* iniB3(bloqueIndirecto1 bi1, bloqueIndirecto2 bi2, bloqueIndirecto3 bi3, inode inodo) {//UN bloqueIndirecto3nivel tiene 64 bloquesInd de 2do nivel.
-		for (int i = 0; i < 64; i++)
-			bi3.pBI3[i] = iniB2(bi2, inodo);
+		int numEsperado = 33308 * (md.cant_entradas - 1);
+		if (indiceBloques != numEsperado) {
+			for (int i = 0; i < 64; i++) {
+				bi3.pBI3[i] = iniB2(bi2, inodo);
+
+			}
+		}
 		return inodo.pBi3;
 	}
 
@@ -233,24 +247,25 @@ public:
 		//printBitMap(bitMap);
 
 		//ESCRIBE INODE ENTRIES. 
-		inode inodoRaiz, inodo = inode();
-		inodoRaiz.tamano = sizeof(inodo);
-		inodo.tamano = sizeof(inodo);
+		inode inodoRaiz;
+		inodoRaiz.tamano = sizeof(inode);
 
+		
 		for (size_t i = 0; i < md.cant_entradas - 1; i++) {
 			if (i == 0) {
 				inodoRaiz.indice = indices;
 				fileC.write(reinterpret_cast<const char*>(&inodoRaiz), sizeof(inodoRaiz));
 			}	
 			else {
+				inode inodo;
 				inodo = inicializarNodo(inodo);
+				inodo.tamano = sizeof(inode);
 				fileC.write(reinterpret_cast<const char*>(&inodo), sizeof(inodo));
 			}
 		}
 
 		fileC.close();
 		insertRaiz();
-		readFile();
 	}
 
 	void insertRaiz() {
@@ -385,18 +400,10 @@ public:
 		bool foundIt = false;
 
 		for (size_t i = 0; i < md.cant_entradas; i++) {
-			cout << "entra" << endl;
 			if (temp.occupied == 0) {
-				cout << "???" << endl;
-				fileC.close();
-			//	foundIt = true;
-				cout << "entro al forr y next nodo avai es: " << temp.indice << endl;
 				fileC.close();
 				return temp.indice;
 			}
-
-			//if (foundIt)
-				//break;
 
 			fileC.read(reinterpret_cast<char*>(&temp), sizeof(temp));
 		}
@@ -407,7 +414,6 @@ public:
 
 	void mkdir(const char* fileName, inode nodoActual, bool itsD) {
 		int availabeSpace = nextAvailable();
-		cout << "EN MKDIR, available Space es: " << availabeSpace << endl;
 		if (availabeSpace > 0) {
 			inode inodeE, temp;
 			int pos = -1;
@@ -429,7 +435,6 @@ public:
 			inodeE.occupied = 1;
 			inodeE.padre = nodoActual.indice;
 			inodeE.tamano = sizeof(inode);
-			inodeE.type = 'd';
 			contIndice++;
 
 			//actualiza el rightBrother.	
@@ -459,12 +464,10 @@ public:
 			fileC.write(reinterpret_cast<char*>(&inodeE), sizeof(inodeE));
 
 			fileC.close();
-			//readFile();
 			contmk++;
 		}
 		else
 			cout << "entries full!" << endl;
-		readFile();
 	}
 
 	void cd(const char* fileName, bool itsDot) {
@@ -657,6 +660,13 @@ public:
 				fileC.seekg(pos);
 				fileC.write(reinterpret_cast<char*>(&temp), sizeof(temp));
 				contIndice--;
+				for (size_t i = temp.firstBlock; i < temp.cantBloquesUsados; i++)
+				{
+					bitMap = getBitMap();
+					bitMap = updateBitmap(i, false, bitMap);
+					setBitMap(bitMap);
+				}
+				contNormal = 0;
 			}
 			else if ((temp.primerHijo != -1 && temp.rightBrother == -1) || (temp.primerHijo == -1 && temp.rightBrother != -1)) {//si tiene hijos
 				temp.occupied = 0;
@@ -689,7 +699,6 @@ public:
 				setNodoActual(raizTemp);
 
 			fileC.close();
-			readFile();
 		}
 		else
 			cout << "Ese directorio/archivo no existe. " << endl;
@@ -767,7 +776,6 @@ public:
 
 		nodo.cantBloquesUsados = contNormal;
 		nodo.firstBlock = nextBitAvailable(getBitMap());
-		cout << "firstBlock" << firstBlock << "bloquesUsados: " << contNormal;
 
 		pos = sizeof(metadata) + md.bitmap_size + (sizeof(inode) * indice);
 		fileC.seekg(pos);
@@ -836,25 +844,6 @@ public:
 
 	void setBitMap(char * bm) {
 		bitMap = bm;
-	}
-
-	void porMientras(const char* fileName) {
-		fstream fileC(md.nombre, ios::in | ios::out | ios::binary);
-		if (!fileC) {
-			cout << "Error de apertura en el archivo!" << endl;
-			return;
-		}
-
-		int indi = findPos(fileName);
-		if (indi == -1) { //LO ESCRIBE VACIO. lit solo escribe su nombre en el inode.
-			mkdir(fileName, getNodoActual(), false);
-			indi = findPos(fileName);
-			importCreado = true;
-		}
-		
-		cout << "indice del archivo es: " << indi;
-
-		fileC.close();
 	}
 
 	void import_1(const char* fileName, char* bloque) {
